@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pirate Navigator</title>
+<style>
+*{box-sizing:border-box}
+body{
+ margin:0;padding:18px;
+ background:#173b43;
+ font-family:Georgia,serif;color:#49351f;
+}
+.game{
+ max-width:1000px;margin:auto;
+ background:#ead5a7;
+ border:7px solid #80532d;
+ border-radius:15px;padding:20px;
+ box-shadow:0 8px 25px #071d20;
+}
+header{text-align:center;margin-bottom:18px}
+header h1{color:#71451f;font-size:clamp(25px,5vw,38px);margin:5px}
+header p{color:#735a36;margin:5px}
+.layout{
+ display:grid;
+ grid-template-columns:minmax(0,1.5fr) minmax(230px,.8fr);
+ gap:18px;
+}
+.map{
+ background:#f4e5c1;
+ border:4px solid #966d3d;
+ padding:8px;border-radius:9px;
+}
+#grid{
+ display:grid;
+ grid-template-columns:25px repeat(11,1fr);
+ grid-template-rows:repeat(11,1fr) 25px;
+ gap:2px;
+ aspect-ratio:1/1;
+ background:#93683b;padding:4px;
+}
+.cell{
+ background:#f6e8c8;
+ display:flex;align-items:center;justify-content:center;
+ cursor:pointer;position:relative;
+ font-size:clamp(10px,2vw,18px);
+ color:#786143;font-weight:bold;
+}
+.cell:hover{background:#e1c58e}
+.cell.selected{background:#b9ce9e;outline:3px solid #31594c;z-index:2}
+.cell.destination{background:#f0d17f;font-size:clamp(15px,3vw,27px)}
+.axis{
+ display:flex;align-items:center;justify-content:center;
+ color:#f5e4bd;font-size:12px;font-weight:bold;
+}
+.side{
+ background:#f5e5bf;padding:15px;
+ border:2px solid #b48b52;border-radius:10px;
+}
+.side h2{margin:0 0 12px;color:#70451f}
+.card{
+ background:#ead2a0;padding:15px;
+ border-left:5px solid #a36d31;
+ border-radius:7px;margin-bottom:15px;
+}
+.tag{font-size:11px;letter-spacing:1px;color:#805426;font-weight:bold}
+#mission{font-size:17px;line-height:1.5;margin-top:9px}
+.coord{
+ text-align:center;font-size:30px;
+ font-weight:bold;color:#28554e;
+ margin:12px 0;
+}
+button{
+ border:0;padding:12px;border-radius:7px;
+ cursor:pointer;font-weight:bold;font-size:14px;
+}
+.primary{background:#315b5b;color:white;width:100%}
+.secondary{background:#cba66c;color:#4d351c;width:100%;margin-top:8px}
+#feedback{
+ background:#fff5dc;padding:12px;
+ border-radius:7px;min-height:55px;
+ margin-top:12px;font-size:14px;line-height:1.5;
+}
+.progress{
+ margin-top:15px;font-size:13px;color:#715432;
+}
+.progressbar{
+ height:9px;background:#d2b986;
+ border-radius:10px;margin-top:6px;overflow:hidden;
+}
+#bar{height:100%;width:0;background:#48745a;transition:.3s}
+footer{text-align:center;font-size:12px;margin-top:17px;color:#805b32}
+@media(max-width:700px){
+ .layout{grid-template-columns:1fr}
+ .game{padding:12px}
+}
+</style>
+</head>
+<body>
+<div class="game">
+<header>
+ <div>☠ ⚓ ☠</div>
+ <h1>🏴‍☠️ Pirate Navigator</h1>
+ <p>Plot the coordinates and discover the lost destinations!</p>
+</header>
+
+<div class="layout">
+<section class="map">
+ <div id="grid"></div>
+ <p style="text-align:center;font-size:12px">
+  X comes first, then Y! ⚓
+ </p>
+</section>
+
+<aside class="side">
+ <h2>📜 Captain's Mission</h2>
+ <div class="card">
+  <div class="tag" id="missionNo">MISSION 1 OF 5</div>
+  <div id="mission">
+   Ahoy, navigator! Find the Harbour!
+  </div>
+  <div class="coord" id="coordinate">(3, 6)</div>
+ </div>
+
+ <p style="font-size:13px">
+  Click the correct intersection on the map to plot
+  the destination.
+ </p>
+
+ <div id="feedback">
+  Ready, matey? Plot your first destination!
+ </div>
+
+ <div class="progress">
+  <b id="progressText">Destinations discovered: 0 / 5</b>
+  <div class="progressbar">
+   <div id="bar"></div>
+  </div>
+ </div>
+
+ <button class="secondary" onclick="restart()">
+  ↻ Restart Adventure
+ </button>
+</aside>
+</div>
+
+<footer>
+  🗺️ Pirate Navigator · Year 4 Mathematics · First Quadrant
+</footer>
+</div>
+
+<script>
+const missions=[
+ {name:"Harbour",x:3,y:6,emoji:"⚓"},
+ {name:"Skull Mountain",x:7,y:8,emoji:"⛰️"},
+ {name:"Hidden Cave",x:9,y:3,emoji:"🏴‍☠️"},
+ {name:"Palm Island",x:2,y:9,emoji:"🌴"},
+ {name:"Shipwreck",x:6,y:2,emoji:"🚢"}
+];
+
+let current=0;
+let found=0;
+let locked=false;
+let selected=null;
+
+const grid=document.getElementById("grid");
+
+function createGrid(){
+ grid.innerHTML="";
+
+ for(let y=10;y>=0;y--){
+  let label=document.createElement("div");
+  label.className="axis";
+  label.textContent=y;
+  grid.appendChild(label);
+
+  for(let x=0;x<=10;x++){
+   let cell=document.createElement("div");
+   cell.className="cell";
+   cell.dataset.x=x;
+   cell.dataset.y=y;
+   cell.title=`(${x},${y})`;
+
+   cell.onclick=()=>plot(x,y);
+   grid.appendChild(cell);
+  }
+ }
+
+ let blank=document.createElement("div");
+ grid.appendChild(blank);
+
+ for(let x=0;x<=10;x++){
+  let label=document.createElement("div");
+  label.className="axis";
+  label.textContent=x;
+  grid.appendChild(label);
+ }
+}
+
+function updateMission(){
+ const m=missions[current];
+ document.getElementById("missionNo").textContent=
+  `MISSION ${current+1} OF ${missions.length}`;
+ document.getElementById("mission").textContent=
+  `Ahoy! Navigate to the ${m.name}!`;
+ document.getElementById("coordinate").textContent=
+  `(${m.x}, ${m.y})`;
+ document.getElementById("feedback").textContent=
+  "Click the correct point on the map, navigator!";
+ locked=false;
+ selected=null;
+}
+
+function plot(x,y){
+ if(locked)return;
+
+ const m=missions[current];
+ const cells=grid.querySelectorAll(".cell");
+
+ cells.forEach(c=>c.classList.remove("selected"));
+
+ const cell=grid.querySelector(
+  `[data-x="${x}"][data-y="${y}"]`
+ );
+
+ if(x===m.x && y===m.y){
+  cell.classList.add("destination");
+  cell.textContent=m.emoji;
+  locked=true;
+  found++;
+
+  document.getElementById("feedback").textContent=
+   `🎉 Well done! You discovered the ${m.name}!`;
+
+  document.getElementById("progressText").textContent=
+   `Destinations discovered: ${found} / 5`;
+
+  document.getElementById("bar").style.width=
+   (found/5*100)+"%";
+
+  setTimeout(()=>{
+   if(current<missions.length-1){
+    current++;
+    updateMission();
+   }else{
+    finish();
+   }
+  },1600);
+
+ }else{
+  cell.classList.add("selected");
+  document.getElementById("feedback").textContent=
+   `Not quite, matey! You plotted (${x}, ${y}). Remember to check X first, then Y. Try again!`;
+ }
+}
+
+function finish(){
+ document.getElementById("missionNo").textContent=
+  "MISSION ACCOMPLISHED!";
+ document.getElementById("mission").textContent=
+  "🏴‍☠️ Incredible! You have discovered every destination and successfully navigated the island!";
+ document.getElementById("coordinate").textContent="🏆";
+ document.getElementById("feedback").textContent=
+  "Congratulations, Captain! All 5 destinations discovered. You are a master navigator!";
+ locked=true;
+}
+
+function restart(){
+ current=0;
+ found=0;
+ createGrid();
+ document.getElementById("progressText").textContent=
+  "Destinations discovered: 0 / 5";
+ document.getElementById("bar").style.width="0%";
+ updateMission();
+}
+
+createGrid();
+updateMission();
+</script>
+</body>
+</html>
